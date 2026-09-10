@@ -58,4 +58,10 @@ This is a teaching model, not a dated ephemeris or festival calculator.
 - `src/styles.css`: responsive paper theme.
 - `tests/exploration.spec.ts`: browser interaction tests.
 
-The proposed primary-text reader is described in [Connecting the diagrams to Vedic passages](docs/VEDIC_PASSAGES_PLAN.md), including the interaction design, source scope, and initial passage map.
+## Vedic passages
+
+“Read passages” connects the lessons to eight excerpts from the Ṛgveda, Taittirīya Saṃhitā, and Vedāṅga Jyotiṣa. The reader stays beside the diagram on desktop and opens as a modal sheet on mobile. Sanskrit is typeset in locally bundled Shobhika 1.05, with source accent marks retained, optional IAST, English paraphrases, and precise source-page links. The two Jyotiṣa excerpts retain their edition’s unaccented notation.
+
+Opening a passage pauses animation and preserves the scene. Copying a view includes the passage; closing returns to the guide. All excerpts are also available in Notes & sources → Vedic passages.
+
+See [Passage text and typography](docs/PASSAGE_SOURCES.md) for checked sources, font handling, and validation limits, and [the original design plan](docs/VEDIC_PASSAGES_PLAN.md) for the broader passage map. The font audit script uses the optional development dependency `fonttools[woff]`; the site itself needs no Python dependencies.

@@ -27,6 +27,8 @@ import { historicalLayers, monthPairs, sources } from '../content'
 import { Disclosure, Note, Slider, SourceLink } from './Controls'
 import { MoonFace } from './SkyDiagram'
 import CoordinateAtlas from './CoordinateAtlas'
+import { stationPassages, type OpenPassage } from '../passages'
+import { PassageLink } from './PassageReader'
 
 export function Panchanga({ sun, moon }: { sun: number; moon: number }) {
   const t = tithiAt(sun, moon),
@@ -234,7 +236,15 @@ function TithiDetails({
   )
 }
 
-function StellarDetails({ moon, onMoon }: { moon: number; onMoon: (n: number) => void }) {
+function StellarDetails({
+  moon,
+  onMoon,
+  onPassage,
+}: {
+  moon: number
+  onMoon: (n: number) => void
+  onPassage: OpenPassage
+}) {
   const n = stellarPosition(moon)
   const [query, setQuery] = useState('')
   const normalize = (s: string) =>
@@ -275,6 +285,7 @@ function StellarDetails({ moon, onMoon }: { moon: number; onMoon: (n: number) =>
             <strong>{n.deity}</strong>
           </div>
         </div>
+        <PassageLink ids={stationPassages(n.index)} onOpen={onPassage} />
         <div className="pada-strip">
           {[1, 2, 3, 4].map((p) => (
             <button
@@ -628,6 +639,7 @@ export default function LessonDetails({
   day,
   onMoon,
   onScene,
+  onPassage,
 }: {
   lesson: number
   sun: number
@@ -636,10 +648,11 @@ export default function LessonDetails({
   day: number
   onMoon: (n: number) => void
   onScene: (s: number, m: number) => void
+  onPassage: OpenPassage
 }) {
   if (lesson === 0) return <CoordinateAtlas />
   if (lesson === 1) return <TithiDetails sun={sun} moon={moon} onMoon={onMoon} />
-  if (lesson === 2) return <StellarDetails moon={moon} onMoon={onMoon} />
+  if (lesson === 2) return <StellarDetails moon={moon} onMoon={onMoon} onPassage={onPassage} />
   if (lesson === 3) return <ClockDetails day={day} />
   if (lesson === 4) return <NodeSection sun={sun} moon={moon} node={node} />
   return <TraditionDetails sun={sun} moon={moon} onScene={onScene} />

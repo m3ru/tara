@@ -1,6 +1,6 @@
 # Connecting the diagrams to Vedic passages
 
-Status: design proposal, 9 September 2026. The interface cleanup is implemented; the passage reader is not implemented yet.
+Original design proposal: 9 September 2026. An eight-excerpt passage reader was implemented on 10 September. See [the implementation and source record](PASSAGE_SOURCES.md) for the shipped scope, checked editions, Vedic typography, and validation. The proposal below retains the broader research leads.
 
 ## The experience
 

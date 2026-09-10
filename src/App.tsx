@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -35,6 +35,8 @@ import {
 import SkyDiagram, { MoonFace } from './components/SkyDiagram'
 import { Disclosure, Note, Segmented, Slider, Toggle } from './components/Controls'
 import LessonDetails from './components/LessonDetails'
+import PassageReader, { PassageLink } from './components/PassageReader'
+import { passageById, passages, stationPassages, topicPassages } from './passages'
 
 type Scene = {
   lesson: number
@@ -92,6 +94,11 @@ function initialScene(): Scene {
       valid.latitude = Math.min(5.2, Math.max(-5.2, stored.latitude))
     if (typeof stored.ayanamsa === 'number' && Number.isFinite(stored.ayanamsa))
       valid.ayanamsa = Math.min(40, Math.max(0, stored.ayanamsa))
+    const passageId = params.get('passage')
+    if (!params.has('scene') && passageId && passageById.has(passageId)) {
+      valid.lesson = topicPassages.findIndex((ids) => ids.includes(passageId))
+      valid.step = 0
+    }
     return valid
   } catch {
     return defaults
@@ -119,6 +126,14 @@ export default function App() {
   const [copied, setCopied] = useState(false)
   const [shareError, setShareError] = useState(false)
   const [resourceTab, setResourceTab] = useState('sources')
+  const [reader, setReader] = useState<{ id: string; collection: string[] } | null>(() => {
+    const id = new URLSearchParams(location.search).get('passage')
+    return id && passageById.has(id)
+      ? { id, collection: topicPassages.find((ids) => ids.includes(id)) || [id] }
+      : null
+  })
+  const passageOpener = useRef<HTMLElement | null>(null)
+  const passageScroll = useRef(0)
   const dialog = useRef<HTMLDialogElement>(null)
   const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const { lesson, sun, moon, day, step, node, tilted, latitude, frame, ayanamsa, grid, padas } =
@@ -129,6 +144,32 @@ export default function App() {
   const t = tithiAt(sun, moon),
     n = stellarPosition(moon)
   const beta = lunarLatitude(moon, node)
+  const closeReader = useCallback(() => {
+    setReader(null)
+    const url = new URL(location.href)
+    if (url.searchParams.has('passage')) {
+      url.searchParams.delete('passage')
+      history.replaceState(null, '', url)
+    }
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: passageScroll.current, behavior: 'instant' })
+      if (passageOpener.current?.isConnected) passageOpener.current.focus({ preventScroll: true })
+      else document.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true })
+    })
+  }, [])
+  const openPassage = (id: string, collection: string[]) => {
+    if (!passageById.has(id)) return
+    setPlaying(false)
+    passageOpener.current = document.activeElement as HTMLElement
+    passageScroll.current = window.scrollY
+    setReader({ id, collection })
+    requestAnimationFrame(() => {
+      if (window.matchMedia('(min-width: 1001px)').matches)
+        document
+          .querySelector('.lab-workbench')
+          ?.scrollIntoView({ block: 'start', behavior: 'instant' })
+    })
+  }
   const patch = (values: Partial<Scene>) => setScene((s) => ({ ...s, ...values }))
   const stopPatch = (values: Partial<Scene>) => {
     setPlaying(false)
@@ -195,6 +236,12 @@ export default function App() {
 
   function goLesson(index: number) {
     setPlaying(false)
+    setReader(null)
+    const url = new URL(location.href)
+    if (url.searchParams.has('passage')) {
+      url.searchParams.delete('passage')
+      history.replaceState(null, '', url)
+    }
     setScene((s) => ({
       ...s,
       lesson: index,
@@ -260,6 +307,7 @@ export default function App() {
     const url = new URL(location.href)
     url.search = ''
     url.searchParams.set('scene', JSON.stringify(scene))
+    if (reader) url.searchParams.set('passage', reader.id)
     url.hash = ''
     try {
       await navigator.clipboard.writeText(url.toString())
@@ -328,7 +376,7 @@ export default function App() {
       <div className="workspace">
         <main>
           <header className="page-heading">
-            <h1>{current.title}</h1>
+            <h1 tabIndex={-1}>{current.title}</h1>
             <div className="page-actions">
               <button
                 className="icon-button"
@@ -356,7 +404,7 @@ export default function App() {
             </div>
           )}
 
-          <div className="lab-workbench">
+          <div className={`lab-workbench${reader ? ' with-reader' : ''}`}>
             <section className="diagram-panel" aria-label="Interactive sky diagram">
               <div className="diagram-toolbar">
                 <div className="diagram-view-title">
@@ -432,7 +480,23 @@ export default function App() {
             </section>
 
             <aside className="inspector" aria-label="Lesson guide and sky controls">
-              <section className="guide-card">
+              {reader && (
+                <PassageReader
+                  id={reader.id}
+                  collection={reader.collection}
+                  onSelect={(id) => {
+                    setPlaying(false)
+                    setReader({ ...reader, id })
+                    const url = new URL(location.href)
+                    if (url.searchParams.has('passage')) {
+                      url.searchParams.set('passage', id)
+                      history.replaceState(null, '', url)
+                    }
+                  }}
+                  onClose={closeReader}
+                />
+              )}
+              <section className="guide-card" hidden={!!reader}>
                 <div className="guide-top">
                   <span>
                     {step + 1} / {current.steps.length}
@@ -451,6 +515,19 @@ export default function App() {
                 </div>
                 <h2>{guide.title}</h2>
                 <p>{guide.body}</p>
+                <PassageLink
+                  ids={
+                    lesson === 2 && stationPassages(n.index).length
+                      ? [
+                          ...stationPassages(n.index),
+                          ...topicPassages[lesson].filter(
+                            (id) => !stationPassages(n.index).includes(id),
+                          ),
+                        ]
+                      : topicPassages[lesson]
+                  }
+                  onOpen={openPassage}
+                />
                 <div className="try-this">
                   <p>{guide.task}</p>
                   <button className="experiment-button" onClick={experiment}>
@@ -694,6 +771,7 @@ export default function App() {
               day={day}
               onMoon={setMoon}
               onScene={(s, m) => stopPatch({ sun: s, moon: m })}
+              onPassage={openPassage}
             />
           </div>
           <nav className="lesson-navigation" aria-label="Adjacent topics">
@@ -754,6 +832,32 @@ export default function App() {
                   </a>
                 ))}
               </div>
+              <details className="reader-disclosure passage-library">
+                <summary>Vedic passages</summary>
+                <div className="passage-library-list">
+                  {passages.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        dialog.current?.close()
+                        goLesson(topicPassages.findIndex((ids) => ids.includes(p.id)))
+                        openPassage(
+                          p.id,
+                          passages.map((p) => p.id),
+                        )
+                        passageOpener.current = null
+                        passageScroll.current = 0
+                      }}
+                    >
+                      <span>
+                        {p.title}
+                        <small>{p.citation}</small>
+                      </span>
+                      <ArrowUpRight size={14} />
+                    </button>
+                  ))}
+                </div>
+              </details>
             </>
           ) : resourceTab === 'help' ? (
             <>
